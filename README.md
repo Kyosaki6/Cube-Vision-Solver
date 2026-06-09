@@ -67,13 +67,23 @@ cube_vision_solver/
 - Webcam
 
 ### Installation
+
+**Linux / macOS**
 ```bash
-git clone https://github.com/yourusername/cube-vision-solver.git
-cd cube-vision-solver
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Windows (PowerShell)**
+```powershell
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### Usage
+
 ```bash
 python main.py
 ```
@@ -92,6 +102,12 @@ Once all faces are scanned, the solving mode begins – simply follow the arrows
 - Full 3D cube tracking (no fixed grid)
 - Support for more cube sizes (2×2, 4×4, etc.)
 - Voice guidance as an alternative to arrows
+
+## Platform Notes
+
+- **Linux**: Ensure `v4l-utils` is installed for webcam access. If OpenCV reports missing `libgl1`, run `sudo apt install libgl1-mesa-glx`.
+- **macOS**: Grant camera permission when prompted. If Python 3 is not installed, get it from [python.org](https://python.org) or via Homebrew (`brew install python@3.11`).
+- **Windows**: Install Python from [python.org](https://python.org) and check **"Add Python to PATH"**. If `venv\Scripts\activate` fails due to execution policy, run `Set-ExecutionPolicy Unrestricted -Scope Process -Force` first.
 
 ## License
 
