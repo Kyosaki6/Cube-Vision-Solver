@@ -16,6 +16,18 @@ SCAN_INSTRUCTIONS = [
     "Scan D (Down): Go back to Front. Tilt cube UP."
 ]
 
+# Auto-scan mode configuration
+EXPECTED_CENTER_COLORS = ['green', 'orange', 'blue', 'red', 'white', 'yellow']
+AUTO_SCAN_INSTRUCTIONS = [
+    "Auto: Show FRONT face (center: GREEN)",
+    "Auto: Show LEFT face (center: ORANGE)",
+    "Auto: Show BACK face (center: BLUE)",
+    "Auto: Show RIGHT face (center: RED)",
+    "Auto: Show TOP face (center: WHITE)",
+    "Auto: Show BOTTOM face (center: YELLOW)"
+]
+STABLE_THRESHOLD = 30
+
 def rotate_face_cw(face_colors):
     """Rotates a 3x3 face array 90 degrees clockwise."""
     # 0 1 2      6 3 0
@@ -54,11 +66,18 @@ def main():
         print("Error: Could not open webcam.")
         sys.exit(1)
         
-    state = "SCANNING"  # SCANNING, SOLVING, ERROR
+    state = "SCANNING"  # SCANNING, AUTO_SCANNING, SOLVING, ERROR
     scanned_faces = [] # Store colors for each face
     solution_moves = []
     cube_already_solved = False
     error_msg = ""
+
+    # Auto-scan state
+    auto_face_index = 0
+    auto_stable_counter = 0
+    auto_stable_center = None
+    auto_feedback_msg = ""
+    auto_feedback_color = (255, 255, 255)
     
     while True:
         ret, raw_frame = cap.read()
@@ -161,6 +180,83 @@ def main():
                 else:
                     display_frame = draw_text_overlay(display_frame, f"Solution: {solution_str}", position=(30, 40), color=(0, 255, 0), font_scale=0.7)
                     display_frame = draw_text_overlay(display_frame, "Press 'R' restart | 'Q' quit.", position=(30, 80), font_scale=0.6)
+        elif state == "AUTO_SCANNING":
+            raw_grid_regions, _ = get_grid_regions(w, h, rect_size=40, spacing=60)
+            raw_colors = extract_colors(raw_frame, raw_grid_regions, rect_size)
+            current_colors = list(raw_colors)
+
+            center_color = current_colors[4]
+
+            # Stability check
+            if center_color == auto_stable_center:
+                auto_stable_counter += 1
+            else:
+                auto_stable_center = center_color
+                auto_stable_counter = 0
+
+            if auto_stable_counter >= STABLE_THRESHOLD and auto_face_index < 6 and center_color != 'unknown':
+                expected = EXPECTED_CENTER_COLORS[auto_face_index]
+                if center_color == expected:
+                    scanned_faces.append(current_colors)
+                    print(f"Auto-captured {SCAN_ORDER[auto_face_index]} (center: {center_color})")
+                    auto_face_index += 1
+                    auto_feedback_msg = f"Captured {SCAN_ORDER[auto_face_index - 1]}!"
+                    auto_feedback_color = (0, 255, 0)
+                    auto_stable_counter = 0
+                    auto_stable_center = None
+
+                    if len(scanned_faces) == 6:
+                        print("All faces scanned. Extracting state...")
+                        try:
+                            state_str = extract_state_string(scanned_faces)
+                            print(f"Cube state string: {state_str}")
+                            try:
+                                with open("cube_state.txt", "w") as f:
+                                    f.write(state_str)
+                                print("Saved state string to cube_state.txt")
+                            except Exception as e:
+                                print(f"Could not save state string to file: {e}")
+                            if is_solved_state(state_str):
+                                print("Cube is already solved!")
+                                solution_moves = []
+                                cube_already_solved = True
+                                state = "SOLVING"
+                            else:
+                                solution_moves = solve_cube(state_str)
+                                cube_already_solved = False
+                                print(f"Solution: {' '.join(solution_moves)}")
+                                state = "SOLVING"
+                        except Exception as e:
+                            error_msg = str(e)
+                            print(f"Error extracting state: {error_msg}")
+                            state = "ERROR"
+                else:
+                    auto_feedback_msg = f"Wrong face! Center is {center_color}, expected {expected}"
+                    auto_feedback_color = (0, 0, 255)
+                    auto_stable_counter = 0
+                    auto_stable_center = None
+
+            # Mirror colors for display overlay
+            display_bgrs = [
+                COLOR_BGR.get(current_colors[2], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[1], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[0], COLOR_BGR['unknown']),
+                COLOR_BGR.get(current_colors[5], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[4], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[3], COLOR_BGR['unknown']),
+                COLOR_BGR.get(current_colors[8], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[7], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[6], COLOR_BGR['unknown'])
+            ]
+
+            display_frame = draw_grid(display_frame, display_regions, rect_size)
+            display_frame = draw_current_colors(display_frame, display_regions, rect_size, display_bgrs)
+
+            if auto_face_index < 6:
+                instruction = AUTO_SCAN_INSTRUCTIONS[auto_face_index]
+            else:
+                instruction = "All faces captured! Solving..."
+            display_frame = draw_text_overlay(display_frame, instruction, position=(30, 30), font_scale=0.7)
+
+            if auto_feedback_msg:
+                display_frame = draw_text_overlay(display_frame, auto_feedback_msg, position=(30, 90), font_scale=0.6, color=auto_feedback_color)
+
+            controls_text = "M: Back to Manual | R: Reset | Q: Quit"
+            display_frame = draw_text_overlay(display_frame, controls_text, position=(30, 60), font_scale=0.5, color=(200, 200, 200))
         
         # Draw the 2D Cube Net in the top-right corner
         display_frame = draw_cube_net(display_frame, scanned_faces, COLOR_BGR, offset_x=w - 160, offset_y=20, block_size=10)
@@ -205,29 +301,48 @@ def main():
                         # Could reset automatically or just stay in SCANNING state (wait for reset)
                         # We'll pop the last face so the user can re-scan it, or just let them press 'R'
                         state = "ERROR"
+        elif key == ord('m'):
+            if state == "AUTO_SCANNING":
+                state = "SCANNING"
+                print("Switched to Manual Scan mode")
+            elif state == "SCANNING":
+                state = "AUTO_SCANNING"
+                auto_face_index = len(scanned_faces)
+                auto_stable_counter = 0
+                auto_stable_center = None
+                auto_feedback_msg = ""
+                print("Switched to Auto-Scan mode")
         elif key == ord('r'):
             scanned_faces = []
             cube_already_solved = False
             state = "SCANNING"
+            auto_face_index = 0
+            auto_stable_counter = 0
+            auto_stable_center = None
+            auto_feedback_msg = ""
             print("Resetting scan state.")
         elif key == ord('u'):
-            if state == "SCANNING" and len(scanned_faces) > 0:
+            if state in ("SCANNING", "AUTO_SCANNING") and len(scanned_faces) > 0:
                 scanned_faces.pop()
+                if state == "AUTO_SCANNING":
+                    auto_face_index = len(scanned_faces)
+                    auto_stable_counter = 0
+                    auto_stable_center = None
+                    auto_feedback_msg = ""
                 print(f"Undid last scan. Now at face {len(scanned_faces)}/6")
-            elif state == "ERROR":
-                if len(scanned_faces) > 0:
-                    scanned_faces.pop()
+            elif state == "ERROR" and len(scanned_faces) > 0:
+                scanned_faces.pop()
                 state = "SCANNING"
                 print("Undid last scan and recovered from error.")
         elif key == ord('['):
             # Rotate last scanned face counter-clockwise
-            if state == "SCANNING" and len(scanned_faces) > 0:
+            if state in ("SCANNING", "AUTO_SCANNING") and len(scanned_faces) > 0:
                 scanned_faces[-1] = rotate_face_ccw(scanned_faces[-1])
                 print("Rotated last face counter-clockwise.")
                 
         elif key == ord(']'):
             # Rotate last scanned face clockwise
-            if state == "SCANNING" and len(scanned_faces) > 0:
+            if state in ("SCANNING", "AUTO_SCANNING") and len(scanned_faces) > 0:
                 scanned_faces[-1] = rotate_face_cw(scanned_faces[-1])
                 print("Rotated last face clockwise.")
 
