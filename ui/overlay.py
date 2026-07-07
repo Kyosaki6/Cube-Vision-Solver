@@ -55,6 +55,35 @@ def draw_current_colors(frame, regions, rect_size, colors):
             cv2.rectangle(frame, (x + 2, y + 2), (x + rect_size - 2, y + rect_size - 2), colors[i], -1)
     return frame
 
+def draw_calibration_legend(frame, calibration_status, position=(30, 120), reference_bgr=None):
+    """
+    Draws the calibration color legend showing number keys and current reference colors.
+    calibration_status: dict mapping color_name -> bool (calibrated this session)
+    reference_bgr: dict mapping color_name -> BGR tuple (for swatch display)
+    """
+    y_start = position[1]
+    color_names = ['white', 'red', 'orange', 'yellow', 'green', 'blue']
+    display_labels = ['1:White', '2:Red', '3:Orange', '4:Yellow', '5:Green', '6:Blue']
+    text_colors = {
+        'white': (255, 255, 255),
+        'red': (0, 0, 255),
+        'orange': (0, 128, 255),
+        'yellow': (0, 255, 255),
+        'green': (0, 255, 0),
+        'blue': (255, 0, 0),
+    }
+
+    for i, (cname, label) in enumerate(zip(color_names, display_labels)):
+        y_pos = y_start + i * 25
+        status = calibration_status.get(cname, False)
+        prefix = "[SAVED]" if status else "       "
+        swatch_bgr = reference_bgr.get(cname, (128, 128, 128)) if reference_bgr else (128, 128, 128)
+        swatch_bgr = tuple(int(v) for v in swatch_bgr)
+        cv2.rectangle(frame, (position[0], y_pos), (position[0] + 20, y_pos + 18), swatch_bgr, -1)
+        cv2.rectangle(frame, (position[0], y_pos), (position[0] + 20, y_pos + 18), (200, 200, 200), 1)
+        display_text = f"{label}  {prefix}"
+        cv2.putText(frame, display_text, (position[0] + 25, y_pos + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.45, text_colors[cname], 1)
+
 def draw_cube_net(frame, scanned_faces, color_bgr_map, offset_x, offset_y, block_size=10):
     """
     Draws a 2D unfolded cube net based on the current scanned faces.

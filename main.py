@@ -1,7 +1,7 @@
 import cv2
 import sys
-from ui.overlay import get_grid_regions, draw_grid, draw_text_overlay, draw_current_colors, draw_cube_net
-from vision.color_detector import extract_colors, COLOR_BGR
+from ui.overlay import get_grid_regions, draw_grid, draw_text_overlay, draw_current_colors, draw_cube_net, draw_calibration_legend
+from vision.color_detector import extract_colors, COLOR_BGR, REFERENCE_BGR, CALIBRATION_COLORS, DEFAULT_REFERENCE_BGR, update_reference_color, save_calibration, load_calibration, sample_calibration_color
 from vision.state_extractor import extract_state_string, SCAN_ORDER
 from solver.cube_solver import solve_cube
 from solver.simulator import apply_move, faces_to_kociemba_list, kociemba_list_to_faces
@@ -65,8 +65,10 @@ def main():
     if not cap.isOpened():
         print("Error: Could not open webcam.")
         sys.exit(1)
-        
-    state = "SCANNING"  # SCANNING, AUTO_SCANNING, SOLVING, ERROR
+
+    load_calibration()
+
+    state = "SCANNING"  # SCANNING, AUTO_SCANNING, SOLVING, ERROR, CALIBRATING
     scanned_faces = [] # Store colors for each face
     solution_moves = []
     cube_already_solved = False
@@ -78,6 +80,11 @@ def main():
     auto_stable_center = None
     auto_feedback_msg = ""
     auto_feedback_color = (255, 255, 255)
+
+    # Calibration state
+    calibration_status = {c: False for c in CALIBRATION_COLORS}
+    calibration_feedback = ""
+    calibration_feedback_timer = 0
     
     while True:
         ret, raw_frame = cap.read()
@@ -258,6 +265,31 @@ def main():
             controls_text = "M: Back to Manual | R: Reset | Q: Quit"
             display_frame = draw_text_overlay(display_frame, controls_text, position=(30, 60), font_scale=0.5, color=(200, 200, 200))
         
+        elif state == "CALIBRATING":
+            raw_grid_regions, _ = get_grid_regions(w, h, rect_size=40, spacing=60)
+            raw_colors = extract_colors(raw_frame, raw_grid_regions, rect_size)
+            current_colors = list(raw_colors)
+
+            display_bgrs = [
+                COLOR_BGR.get(current_colors[2], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[1], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[0], COLOR_BGR['unknown']),
+                COLOR_BGR.get(current_colors[5], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[4], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[3], COLOR_BGR['unknown']),
+                COLOR_BGR.get(current_colors[8], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[7], COLOR_BGR['unknown']), COLOR_BGR.get(current_colors[6], COLOR_BGR['unknown'])
+            ]
+
+            display_frame = draw_grid(display_frame, display_regions, rect_size)
+            display_frame = draw_current_colors(display_frame, display_regions, rect_size, display_bgrs)
+
+            draw_calibration_legend(display_frame, calibration_status, position=(30, 130), reference_bgr=REFERENCE_BGR)
+
+            if calibration_feedback and calibration_feedback_timer > 0:
+                display_frame = draw_text_overlay(display_frame, calibration_feedback, position=(30, 30), color=(0, 255, 255), font_scale=0.7)
+                calibration_feedback_timer -= 1
+            else:
+                display_frame = draw_text_overlay(display_frame, "CALIBRATION MODE", position=(30, 30), color=(0, 255, 255), font_scale=0.7)
+
+            display_frame = draw_text_overlay(display_frame, "Show face filling grid, then press 1-6 to sample that color", position=(30, 60), font_scale=0.5, color=(200, 200, 200))
+            display_frame = draw_text_overlay(display_frame, "C: Exit & Save | R: Reset defaults | Q: Quit", position=(30, 90), font_scale=0.5, color=(200, 200, 200))
+
         # Draw the 2D Cube Net in the top-right corner
         display_frame = draw_cube_net(display_frame, scanned_faces, COLOR_BGR, offset_x=w - 160, offset_y=20, block_size=10)
         
@@ -301,6 +333,17 @@ def main():
                         # Could reset automatically or just stay in SCANNING state (wait for reset)
                         # We'll pop the last face so the user can re-scan it, or just let them press 'R'
                         state = "ERROR"
+        elif key == ord('c'):
+            if state == "CALIBRATING":
+                save_calibration()
+                print("Calibration saved.")
+                calibration_feedback = ""
+                state = "SCANNING"
+            elif state in ("SCANNING", "AUTO_SCANNING", "ERROR"):
+                calibration_feedback = ""
+                calibration_feedback_timer = 0
+                state = "CALIBRATING"
+                print("Entered Calibration mode.")
         elif key == ord('m'):
             if state == "AUTO_SCANNING":
                 state = "SCANNING"
@@ -313,14 +356,22 @@ def main():
                 auto_feedback_msg = ""
                 print("Switched to Auto-Scan mode")
         elif key == ord('r'):
-            scanned_faces = []
-            cube_already_solved = False
-            state = "SCANNING"
-            auto_face_index = 0
-            auto_stable_counter = 0
-            auto_stable_center = None
-            auto_feedback_msg = ""
-            print("Resetting scan state.")
+            if state == "CALIBRATING":
+                for cname in CALIBRATION_COLORS:
+                    update_reference_color(cname, DEFAULT_REFERENCE_BGR[cname])
+                    calibration_status[cname] = False
+                calibration_feedback = "Calibration reset to defaults"
+                calibration_feedback_timer = 60
+                print("Calibration reset to defaults.")
+            else:
+                scanned_faces = []
+                cube_already_solved = False
+                state = "SCANNING"
+                auto_face_index = 0
+                auto_stable_counter = 0
+                auto_stable_center = None
+                auto_feedback_msg = ""
+                print("Resetting scan state.")
         elif key == ord('u'):
             if state in ("SCANNING", "AUTO_SCANNING") and len(scanned_faces) > 0:
                 scanned_faces.pop()
@@ -345,6 +396,16 @@ def main():
             if state in ("SCANNING", "AUTO_SCANNING") and len(scanned_faces) > 0:
                 scanned_faces[-1] = rotate_face_cw(scanned_faces[-1])
                 print("Rotated last face clockwise.")
+        elif ord('1') <= key <= ord('6') and state == "CALIBRATING":
+            idx = key - ord('1')
+            color_name = CALIBRATION_COLORS[idx]
+            raw_grid_regions, _ = get_grid_regions(w, h, rect_size=40, spacing=60)
+            sampled_bgr = sample_calibration_color(raw_frame, raw_grid_regions, rect_size)
+            update_reference_color(color_name, sampled_bgr)
+            calibration_status[color_name] = True
+            calibration_feedback = f"Sampled {color_name}: BGR({int(sampled_bgr[0])},{int(sampled_bgr[1])},{int(sampled_bgr[2])})"
+            calibration_feedback_timer = 60
+            print(calibration_feedback)
 
     cap.release()
     cv2.destroyAllWindows()

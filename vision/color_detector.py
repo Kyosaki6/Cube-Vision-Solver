@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import json
+import os
 
 # We'll define standard reference colors in LAB space for CIEDE2000 comparison.
 # First, let's define their typical BGR values (similar to what might be seen on camera)
@@ -14,12 +16,47 @@ REFERENCE_BGR = {
     'blue':   (180, 0, 0)
 }
 
+CALIBRATION_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "calibration.json")
+CALIBRATION_COLORS = ['white', 'red', 'orange', 'yellow', 'green', 'blue']
+DEFAULT_REFERENCE_BGR = {
+    'white':  (230, 230, 230),
+    'red':    (0, 0, 180),
+    'orange': (0, 100, 230),
+    'yellow': (0, 210, 210),
+    'green':  (0, 180, 0),
+    'blue':   (180, 0, 0)
+}
+
+def _compute_lab(bgr_val):
+    bgr_np = np.uint8([[bgr_val]])
+    lab_np = cv2.cvtColor(bgr_np, cv2.COLOR_BGR2LAB)
+    return lab_np[0][0]
+
+def update_reference_color(color_name, bgr_tuple):
+    REFERENCE_BGR[color_name] = tuple(int(v) for v in bgr_tuple)
+    REFERENCE_LAB[color_name] = _compute_lab(REFERENCE_BGR[color_name])
+
+def save_calibration(filepath=CALIBRATION_FILE):
+    data = {name: list(bgr) for name, bgr in REFERENCE_BGR.items()}
+    with open(filepath, 'w') as f:
+        json.dump(data, f, indent=2)
+
+def load_calibration(filepath=CALIBRATION_FILE):
+    if not os.path.exists(filepath):
+        return
+    try:
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        for name, bgr_list in data.items():
+            if name in REFERENCE_BGR and len(bgr_list) == 3:
+                update_reference_color(name, tuple(bgr_list))
+    except Exception:
+        pass
+
 # Convert reference BGR colors to LAB
 REFERENCE_LAB = {}
 for color_name, bgr_val in REFERENCE_BGR.items():
-    bgr_np = np.uint8([[bgr_val]])
-    lab_np = cv2.cvtColor(bgr_np, cv2.COLOR_BGR2LAB)
-    REFERENCE_LAB[color_name] = lab_np[0][0]
+    REFERENCE_LAB[color_name] = _compute_lab(bgr_val)
 
 # Mapping color names to BGR tuples for UI rendering
 COLOR_BGR = {
@@ -91,15 +128,37 @@ def get_dominant_color(roi):
             
     return best_color
 
-def extract_colors(frame, regions, rect_size):
+def sample_bgr_from_roi(roi):
+    blurred = cv2.GaussianBlur(roi, (5, 5), 0)
+    median_b = np.median(blurred[:, :, 0])
+    median_g = np.median(blurred[:, :, 1])
+    median_r = np.median(blurred[:, :, 2])
+    return (median_b, median_g, median_r)
+
+def sample_calibration_color(frame, regions, rect_size):
+    """Sample the median BGR across all 9 grid cells."""
+    bgr_samples = []
+    for (x, y) in regions:
+        roi = frame[y:y+rect_size, x:x+rect_size]
+        bgr_samples.append(sample_bgr_from_roi(roi))
+    avg_b = float(np.mean([s[0] for s in bgr_samples]))
+    avg_g = float(np.mean([s[1] for s in bgr_samples]))
+    avg_r = float(np.mean([s[2] for s in bgr_samples]))
+    return (avg_b, avg_g, avg_r)
+
+def extract_colors(frame, regions, rect_size, return_bgr=False):
     """
     Extracts colors from the frame at the specified regions.
-    Returns a list of 9 color names.
+    If return_bgr is False, returns a list of 9 color names.
+    If return_bgr is True, returns (color_names, bgr_samples) tuple.
     """
     colors = []
+    bgr_samples = []
     for (x, y) in regions:
-        # Extract ROI
         roi = frame[y:y+rect_size, x:x+rect_size]
         color = get_dominant_color(roi)
         colors.append(color)
+        bgr_samples.append(sample_bgr_from_roi(roi))
+    if return_bgr:
+        return colors, bgr_samples
     return colors

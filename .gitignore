@@ -431,3 +431,6 @@ FodyWeavers.xsd
 # Output state file
 cube_state.txt
 notes.txt
+
+# Per-user calibration data
+calibration.json
