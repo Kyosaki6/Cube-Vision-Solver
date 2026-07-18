@@ -367,7 +367,7 @@ def main():
                 last_captured_index = -1
                 cube_already_solved = False
                 scanning_feedback = ""
-                if state == "ERROR":
+                if state in ("ERROR", "SOLVING"):
                     state = "SCANNING"
                 print("Reset all scanned faces.")
         elif key == ord('u'):
