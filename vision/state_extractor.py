@@ -24,8 +24,8 @@ def extract_state_string(scanned_faces):
     2. Create a mapping from color name to face letter (F, L, B, R, U, D).
     3. Construct the 54-char string in Kociemba order (U, R, F, D, L, B).
     """
-    if len(scanned_faces) != 6:
-        raise ValueError("Need exactly 6 scanned faces")
+    if any(f is None for f in scanned_faces):
+        raise ValueError("Not all 6 faces have been scanned yet")
         
     # Letters corresponding to the SCAN_ORDER
     scan_face_letters = ['F', 'L', 'B', 'R', 'U', 'D']

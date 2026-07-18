@@ -55,6 +55,17 @@ def draw_current_colors(frame, regions, rect_size, colors):
             cv2.rectangle(frame, (x + 2, y + 2), (x + rect_size - 2, y + rect_size - 2), colors[i], -1)
     return frame
 
+def draw_detected_contours(frame, rects, color=(0, 0, 255), thickness=2):
+    for (x, y, w, h) in rects:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), color, thickness)
+    return frame
+
+def draw_contour_colors(frame, rects, colors):
+    for i, (x, y, w, h) in enumerate(rects):
+        if i < len(colors) and colors[i] is not None:
+            cv2.rectangle(frame, (x + 3, y + 3), (x + w - 3, y + h - 3), colors[i], -1)
+    return frame
+
 def draw_calibration_legend(frame, calibration_status, position=(30, 120), reference_bgr=None):
     """
     Draws the calibration color legend showing number keys and current reference colors.
@@ -126,7 +137,7 @@ def draw_cube_net(frame, scanned_faces, color_bgr_map, offset_x, offset_y, block
                 bgr_color = (50, 50, 50)
                 
                 # If this face has been scanned, fill with scanned colors
-                if scan_idx < len(scanned_faces):
+                if scan_idx < len(scanned_faces) and scanned_faces[scan_idx] is not None:
                     color_name = scanned_faces[scan_idx][r * 3 + c]
                     bgr_color = color_bgr_map.get(color_name, (128, 128, 128))
                 
