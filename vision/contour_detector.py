@@ -2,12 +2,14 @@ import cv2
 import numpy as np
 
 def preprocess(frame):
-    """Preprocess frame for contour detection: grayscale -> blur -> Canny -> dilate."""
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.blur(gray, (3, 3))
-    canny = cv2.Canny(blurred, 30, 60, 3)
+    """Preprocess frame for contour detection: per-channel Canny -> combine -> dilate."""
+    edges = np.zeros(frame.shape[:2], dtype=np.uint8)
+    for ch in cv2.split(frame):
+        blurred = cv2.blur(ch, (3, 3))
+        canny = cv2.Canny(blurred, 30, 60, 3)
+        edges = cv2.bitwise_or(edges, canny)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-    dilated = cv2.dilate(canny, kernel)
+    dilated = cv2.dilate(edges, kernel)
     return dilated
 
 def find_sticker_contours(dilated_frame):
@@ -15,7 +17,11 @@ def find_sticker_contours(dilated_frame):
     Find and validate exactly 9 sticker contours.
     Returns sorted list of (x, y, w, h) or empty list.
     """
+    fh, fw = dilated_frame.shape[:2]
     contours, _ = cv2.findContours(dilated_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    min_s = max(15, int(fw * 0.02))
+    max_s = min(fw, int(fw * 0.15))
 
     candidates = []
     for c in contours:
@@ -26,14 +32,14 @@ def find_sticker_contours(dilated_frame):
 
         x, y, w, h = cv2.boundingRect(approx)
         ratio = w / float(h)
-        if not (0.8 <= ratio <= 1.2):
+        if not (0.7 <= ratio <= 1.3):
             continue
-        if not (30 <= w <= 60):
+        if not (min_s <= w <= max_s):
             continue
 
         area = cv2.contourArea(c)
         solidity = area / float(w * h)
-        if solidity < 0.4:
+        if solidity < 0.3:
             continue
 
         candidates.append((x, y, w, h))
@@ -105,7 +111,19 @@ def extract_contour_colors_kmeans(frame, rects):
     """
     colors = []
     for x, y, w, h in rects:
-        # Take center region, shrinking by 7px top/bottom, 14px left/right (matching qbr)
-        roi = frame[y+7:y+h-7, x+14:x+w-14]
-        colors.append(get_dominant_color_kmeans(roi))
+        y1 = y + 7
+        y2 = y + h - 7
+        x1 = x + 14
+        x2 = x + w - 14
+        if y2 - y1 < 5 or x2 - x1 < 5:
+            y1, y2 = y, y + h
+            x1, x2 = x + 7, x + w - 7
+        if y2 - y1 < 5 or x2 - x1 < 5:
+            y1, y2 = y, y + h
+            x1, x2 = x, x + w
+        roi = frame[y1:y2, x1:x2]
+        if roi.size < 9:
+            colors.append((0, 0, 0))
+        else:
+            colors.append(get_dominant_color_kmeans(roi))
     return colors
