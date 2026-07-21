@@ -1,119 +1,97 @@
 # Cube Vision Solver
 
-**Real-time Rubik's Cube solving assistant using Computer Vision**
-
-![Demo placeholder](https://via.placeholder.com/800x400?text=Cube+Vision+Solver+Demo)
-
-## Overview
-
-Cube Vision Solver is a desktop application that turns your webcam into an interactive Rubik's Cube guide.  
-Scan the scrambled cube, get an optimal solution, and follow on‑screen arrow overlays – step by step – until the cube is solved.
-
-No buttons, no manual notation entry. Just show the cube to the camera and turn as directed.
-
-## How It Works
-
-1. **Position the cube** inside the fixed 3×3 grid on your screen.
-2. The system scans all six faces and recognises the current colour state.
-3. An optimal solution (typically ≤20 moves) is calculated automatically.
-4. **Dynamic arrows** appear around the grid, showing exactly which face to turn and in which direction.
-5. Turn the cube – the application detects the movement and waits for you to finish.
-6. Once stable, the next arrow appears. Repeat until solved.
-
-> The auto‑advance mode uses **frame differencing**: no keystrokes, no buttons – just turn the cube and the system follows.
+Real-time Rubik's Cube scanner and solver using computer vision.
 
 ## Features
 
-- 🧩 **Static alignment guidance** – place the cube inside a fixed on‑screen frame; no complex 3D tracking required.
-- 🎨 **Robust colour detection** – HSV colour space + Gaussian blur for consistent results under varying indoor lighting.
-- ⚡ **Fast optimal solver** – integrates Kociemba's Two‑Phase Algorithm (via `pykociemba`). Solves any cube in milliseconds.
-- 🖱️ **Auto‑advance mechanism** – detects when the cube is being turned and when it becomes still, automatically moving to the next instruction.
-- 📐 **Visual arrow overlays** – uses OpenCV drawing primitives (`cv2.arrowedLine`, `cv2.rectangle`) to render intuitive turn instructions.
+- **Two scan modes** — fixed 3×3 grid (center) or automatic contour detection (finds stickers anywhere in frame)
+- **CIEDE2000 color matching** — perceptual color distance in LAB space, far more accurate than HSV
+- **On-the-fly calibration** — press `C`, hold a face, press `1`–`6` to sample reference colors for your specific cube and lighting
+- **Kociemba optimal solver** — computes a solution (≤20 moves) from the scanned state
+- **Real-time preview** — detected colors fill the grid/contours live on camera feed
+- **iPhone / wireless camera** — use `--source` with an IP camera URL instead of the built-in webcam
+- **Auto-scale** — high-resolution streams are automatically scaled to fit your screen
 
 ## Tech Stack
 
-| Component       | Technology / Library               |
-|----------------|------------------------------------|
-| Language       | Python 3                           |
-| Computer Vision| OpenCV (cv2)                       |
-| Colour handling| HSV conversion, Gaussian blur      |
-| Solving engine | `pykociemba` (Kociemba's algorithm)|
-| UI overlay     | OpenCV + NumPy                     |
+| Component | Library |
+|-----------|---------|
+| Language | Python 3 |
+| Vision | OpenCV (`cv2`) |
+| Color matching | CIEDE2000 (`colormath`) + LAB space |
+| Solver | `kociemba` (two-phase algorithm) |
+| Clustering | OpenCV `kmeans` for contour color extraction |
 
-## Project Structure (MVP Modules)
+## Installation
 
-```
-cube_vision_solver/
-├── vision/          # Module 1: Colour detection & state extraction
-├── solver/          # Module 2: Kociemba integration (move sequence)
-├── ui/              # Module 3: Arrow rendering & frame differencing
-├── main.py          # Application entry point
-└── requirements.txt
-```
-
-## Development Milestones
-
-| Milestone | Goal |
-|-----------|------|
-| **M1 – Static recognition** | Live grid overlay, scan 6 faces, store colour arrays (HSV sampling). |
-| **M2 – Solver integration** | Feed colour data to Kociemba; verify that manual execution of the output string solves the cube. |
-| **M3 – Auto‑advance filter** | Implement `absdiff` frame differencing to detect “still” state without user input. |
-| **M4 – Arrow graphics & packaging** | Map all Singmaster notations (`R`, `U'`, `F2`, …) to 2D arrows; finalise standalone application. |
-
-## Getting Started
-
-### Prerequisites
-- Python 3.8+
-- Webcam
-
-### Installation
-
-**Linux / macOS**
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Windows (PowerShell)**
-```powershell
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Usage
+## Usage
 
 ```bash
-python main.py
+python3 main.py
 ```
-Follow the on‑screen instructions.  
-Hold the Rubik’s cube so that each face fits the 3×3 grid when prompted.  
-Once all faces are scanned, the solving mode begins – simply follow the arrows.
 
-## Limitations (Current MVP)
+With an iPhone / IP camera:
+```bash
+python3 main.py --source "http://admin:pass@192.168.1.X:8081/video"
+```
 
-- Requires **static alignment** (the user moves the cube into the fixed grid, not the other way around).
-- Works best with **good uniform lighting** (standard room light is fine; avoid strong backlight or shadows).
-- Does **not** support arbitrary cube rotations during scanning – each face must be presented deliberately.
+### Controls
 
-## Future Plans
+| Key | Action |
+|-----|--------|
+| `A` | Toggle Grid Scan ↔ Contour Scan |
+| `Space` | Capture current face |
+| `S` | Solve (after all 6 faces captured) |
+| `C` | Enter / Exit calibration mode |
+| `R` | Reset scanned faces / reset calibration |
+| `U` | Undo last capture |
+| `[` / `]` | Rotate last captured face CCW / CW |
+| `Q` | Quit |
 
-- Full 3D cube tracking (no fixed grid)
-- Support for more cube sizes (2×2, 4×4, etc.)
-- Voice guidance as an alternative to arrows
+### Calibration
 
-## Platform Notes
+For accurate color detection under your specific lighting and camera:
 
-- **Linux**: Ensure `v4l-utils` is installed for webcam access. If OpenCV reports missing `libgl1`, run `sudo apt install libgl1-mesa-glx`.
-- **macOS**: Grant camera permission when prompted. If Python 3 is not installed, get it from [python.org](https://python.org) or via Homebrew (`brew install python@3.11`).
-- **Windows**: Install Python from [python.org](https://python.org) and check **"Add Python to PATH"**. If `venv\Scripts\activate` fails due to execution policy, run `Set-ExecutionPolicy Unrestricted -Scope Process -Force` first.
+1. Press `C` to enter calibration mode
+2. Hold a face so it fills the 3×3 grid
+3. Press `1` (white), `2` (red), `3` (orange), `4` (yellow), `5` (green), `6` (blue)
+4. Repeat for all 6 colors
+5. Press `C` again to save (`calibration.json`)
 
-## License
+### Scan Modes
 
-This project is for educational and research purposes.  
-Kociemba's algorithm and `pykociemba` retain their respective licenses.
+**Grid Scan** — a fixed 3×3 grid at screen center. Align the cube face to the grid. Most reliable for consistent lighting.
 
----
+**Contour Scan** — detects sticker boundaries automatically via per-channel Canny edge detection. Works at any position in the frame. Red/blue/white faces handled by per-channel edge detection and edge-map inversion (handles black text on white stickers).
 
-**Made with computer vision, combinatorial optimisation, and a lot of Rubik’s turns.**
+## Project Structure
+
+```
+Cube-Vision-Solver/
+├── main.py                     # Entry point
+├── calibration.json            # Saved reference colors
+├── vision/
+│   ├── color_detector.py       # CIEDE2000 matching, calibration save/load
+│   ├── contour_detector.py     # Contour finding, K-means color extraction
+│   ├── state_extractor.py      # 6 faces → 54-char Kociemba string
+│   ├── motion_detector.py      # Frame-differencing (infrastructure)
+│   └── stream.py               # MJPEG stream reader (iPhone cameras)
+├── ui/
+│   └── overlay.py              # Grid, contours, cube net, calibration legend
+├── solver/
+│   ├── cube_solver.py          # Kociemba wrapper
+│   └── simulator.py           # Move permutation tables
+└── requirements.txt
+```
+
+## Requirements
+
+- Python 3.8+
+- Webcam or IP camera (iPhone with an IP camera app)
+- `opencv-python`, `numpy`, `kociemba`, `colormath`
