@@ -2,14 +2,16 @@ import cv2
 import numpy as np
 
 def preprocess(frame):
-    """Preprocess frame for contour detection: per-channel Canny -> combine -> dilate."""
+    """Preprocess frame for contour detection: per-channel Canny -> combine -> close -> dilate."""
     edges = np.zeros(frame.shape[:2], dtype=np.uint8)
     for ch in cv2.split(frame):
         blurred = cv2.blur(ch, (3, 3))
         canny = cv2.Canny(blurred, 30, 60, 3)
         edges = cv2.bitwise_or(edges, canny)
+    close_k = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, close_k)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-    dilated = cv2.dilate(edges, kernel)
+    dilated = cv2.dilate(closed, kernel)
     return dilated
 
 def find_sticker_contours(dilated_frame):
@@ -18,7 +20,10 @@ def find_sticker_contours(dilated_frame):
     Returns sorted list of (x, y, w, h) or empty list.
     """
     fh, fw = dilated_frame.shape[:2]
-    contours, _ = cv2.findContours(dilated_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # Invert so stickers become white blobs, edges become black separators.
+    # Text creates holes inside sticker blobs but the outer boundary stays clean.
+    inverted = cv2.bitwise_not(dilated_frame)
+    contours, _ = cv2.findContours(inverted, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     min_s = max(15, int(fw * 0.02))
     max_s = min(fw, int(fw * 0.15))
