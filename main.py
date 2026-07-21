@@ -80,6 +80,8 @@ def main():
     parser = argparse.ArgumentParser(description='Cube Vision Solver')
     parser.add_argument('--source', type=str, default='0',
                         help='Camera source: "0" for webcam, or URL for iPhone stream (e.g. http://192.168.1.X:8080/video)')
+    parser.add_argument('--max-width', type=int, default=960,
+                        help='Maximum display width in pixels (auto-scales down if larger)')
     args = parser.parse_args()
 
     print("Cube Vision Solver starting...")
@@ -125,6 +127,13 @@ def main():
         ret, raw_frame = cap.read()
         if not ret:
             break
+
+        h_raw, w_raw = raw_frame.shape[:2]
+        scale = min(1.0, args.max_width / w_raw)
+        if scale < 1.0:
+            new_w = int(w_raw * scale)
+            new_h = int(h_raw * scale)
+            raw_frame = cv2.resize(raw_frame, (new_w, new_h))
 
         display_frame = cv2.flip(raw_frame, 1)
         h, w, _ = display_frame.shape
