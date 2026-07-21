@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import sys
+import argparse
+import time
 from ui.overlay import (
     get_grid_regions, draw_grid, draw_text_overlay, draw_current_colors,
     draw_cube_net, draw_calibration_legend, draw_detected_contours, draw_contour_colors
@@ -12,6 +14,7 @@ from vision.color_detector import (
 )
 from vision.state_extractor import extract_state_string
 from vision.contour_detector import preprocess, find_sticker_contours, extract_contour_colors_kmeans
+from vision.stream import MJPEGStream
 from solver.cube_solver import solve_cube
 
 CENTER_TO_FACE = {
@@ -74,12 +77,31 @@ def compute_display_bgrs(physical_colors):
     ]
 
 def main():
+    parser = argparse.ArgumentParser(description='Cube Vision Solver')
+    parser.add_argument('--source', type=str, default='0',
+                        help='Camera source: "0" for webcam, or URL for iPhone stream (e.g. http://192.168.1.X:8080/video)')
+    args = parser.parse_args()
+
     print("Cube Vision Solver starting...")
 
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("Error: Could not open webcam.")
-        sys.exit(1)
+    source = int(args.source) if args.source.isdigit() else args.source
+    if isinstance(source, str) and source.startswith('http'):
+        print(f"Connecting to iPhone stream: {source}")
+        cap = MJPEGStream(source)
+        for _ in range(20):
+            if cap.isOpened():
+                break
+            time.sleep(0.25)
+        if not cap.isOpened():
+            if '@' not in source:
+                print(f"Error: Could not connect. If the app requires login, use:")
+                print(f"  python3 main.py --source \"http://user:pass@{source.split('://')[1]}\"")
+            sys.exit(1)
+    else:
+        cap = cv2.VideoCapture(source)
+        if not cap.isOpened():
+            print(f"Error: Could not open camera source: {source}")
+            sys.exit(1)
 
     load_calibration()
 
