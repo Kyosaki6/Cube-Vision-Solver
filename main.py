@@ -122,6 +122,8 @@ def main():
     contour_average_colors = {}
     contour_preview_state = [None] * 9
     contour_rects = []
+    contour_last_auto_face = -1
+    contour_auto_cooldown = 0
 
     while True:
         ret, raw_frame = cap.read()
@@ -230,6 +232,21 @@ def main():
                                                           position=(30, 30), font_scale=0.7)
                         display_frame = draw_text_overlay(display_frame, hint,
                                                           position=(30, 60), font_scale=0.5, color=(200, 200, 200))
+
+                        # Auto-capture if all colors known, face not already captured, and different from last auto-capture
+                        if (contour_auto_cooldown <= 0
+                                and scanned_faces[face_idx] is None
+                                and all(c != 'unknown' for c in current_colors)
+                                and face_idx != contour_last_auto_face):
+                            scanned_faces[face_idx] = current_colors
+                            last_captured_index = face_idx
+                            contour_last_auto_face = face_idx
+                            contour_auto_cooldown = 30
+                            captured_count = sum(1 for f in scanned_faces if f is not None)
+                            scanning_feedback = f"Auto-captured {face_name} ({captured_count}/6)"
+                            print(scanning_feedback)
+                            if captured_count == 6:
+                                scanning_feedback += " — Press S to solve!"
                     else:
                         display_frame = draw_text_overlay(display_frame, "Unknown center color",
                                                           position=(30, 30), color=(0, 0, 255), font_scale=0.7)
@@ -247,13 +264,14 @@ def main():
                 display_frame = draw_text_overlay(display_frame, "Position the face so all 9 stickers are outlined",
                                                   position=(30, 60), font_scale=0.5, color=(200, 200, 200))
 
+            contour_auto_cooldown = max(0, contour_auto_cooldown - 1)
             captured_count = sum(1 for f in scanned_faces if f is not None)
-            display_frame = draw_text_overlay(display_frame, f"Captured: {captured_count}/6 — SPACE to capture, S to solve",
+            display_frame = draw_text_overlay(display_frame, f"Captured: {captured_count}/6 — Auto-scan active, S to solve",
                                               position=(30, 90), font_scale=0.5, color=(200, 200, 200))
             if scanning_feedback:
                 display_frame = draw_text_overlay(display_frame, scanning_feedback,
                                                   position=(30, 120), font_scale=0.5, color=(0, 255, 0))
-            controls_text = "SPACE: Capture | A: Grid | U: Undo | R: Reset | C: Calibrate | Q: Quit"
+            controls_text = "S: Solve | A: Grid | U: Undo | R: Reset | C: Calibrate | Q: Quit"
             if captured_count > 0:
                 controls_text += " | [ / ]: Rotate"
             display_frame = draw_text_overlay(display_frame, controls_text,
