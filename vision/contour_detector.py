@@ -5,7 +5,7 @@ def preprocess(frame):
     """Preprocess frame for contour detection: per-channel Canny -> combine -> close -> dilate."""
     edges = np.zeros(frame.shape[:2], dtype=np.uint8)
     for ch in cv2.split(frame):
-        blurred = cv2.GaussianBlur(ch, (7, 7), 0)
+        blurred = cv2.blur(ch, (3, 3))
         canny = cv2.Canny(blurred, 30, 60, 3)
         edges = cv2.bitwise_or(edges, canny)
     close_k = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
@@ -50,40 +50,26 @@ def find_sticker_contours(dilated_frame):
         candidates.append((x, y, w, h))
 
     if len(candidates) < 9:
-        if len(candidates) < 4:
+        # When exactly 8 are found, the center sticker may be broken by a logo.
+        # Infer the missing center position from the bounding box of the 8 outer
+        # stickers rather than splitting the center contour.
+        if len(candidates) != 8:
             return []
-        # Infer 3x3 grid from bounding box of found candidates
         xs = [c[0] + c[2] / 2 for c in candidates]
         ys = [c[1] + c[3] / 2 for c in candidates]
         min_x, max_x = min(xs), max(xs)
         min_y, max_y = min(ys), max(ys)
         cell_w = (max_x - min_x) / 2
         cell_h = (max_y - min_y) / 2
-        grid = []
-        for row in range(3):
-            for col in range(3):
-                gx = min_x + col * cell_w
-                gy = min_y + row * cell_h
-                best_d = float('inf')
-                best = None
-                for x, y, w, h in candidates:
-                    px, py = x + w / 2, y + h / 2
-                    d = (px - gx) ** 2 + (py - gy) ** 2
-                    if d < best_d:
-                        best_d = d
-                        best = (x, y, w, h)
-                if best and best_d < (cell_w * 0.35) ** 2:
-                    grid.append(best)
-                else:
-                    gw, gh = cell_w * 0.7, cell_h * 0.7
-                    grid.append((int(gx - gw / 2), int(gy - gh / 2), int(gw), int(gh)))
-        if len(grid) == 9:
-            y_sorted = sorted(grid, key=lambda item: item[1])
-            top_row = sorted(y_sorted[0:3], key=lambda item: item[0])
-            middle_row = sorted(y_sorted[3:6], key=lambda item: item[0])
-            bottom_row = sorted(y_sorted[6:9], key=lambda item: item[0])
-            return top_row + middle_row + bottom_row
-        return []
+        gx = min_x + cell_w
+        gy = min_y + cell_h
+        cw, ch = cell_w * 0.7, cell_h * 0.7
+        inferred_center = (int(gx - cw / 2), int(gy - ch / 2), int(cw), int(ch))
+        y_sorted = sorted(candidates, key=lambda item: item[1])
+        top_row = sorted(y_sorted[0:3], key=lambda item: item[0])
+        middle_row_left, middle_row_right = sorted(y_sorted[3:5], key=lambda item: item[0])
+        bottom_row = sorted(y_sorted[5:8], key=lambda item: item[0])
+        return top_row + [middle_row_left, inferred_center, middle_row_right] + bottom_row
 
     # Build neighbor map: find which contour has 9 neighbors (itself + 8 others)
     # by checking if neighbor positions fall inside other contours.
