@@ -437,6 +437,10 @@ def main():
                     if scanned_faces[i] is not None:
                         scanned_faces[i] = None
                         last_captured_index = -1
+                        for j in range(5, -1, -1):
+                            if scanned_faces[j] is not None:
+                                last_captured_index = j
+                                break
                         state = "SCANNING"
                         print("Undid last scan and recovered from error.")
                         break
