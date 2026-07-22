@@ -425,6 +425,7 @@ def main():
                 scanned_faces[last_captured_index] = None
                 captured_count = sum(1 for f in scanned_faces if f is not None)
                 last_captured_index = -1
+                contour_last_auto_face = -1
                 for i in range(5, -1, -1):
                     if scanned_faces[i] is not None:
                         last_captured_index = i
