@@ -9,7 +9,7 @@ Real-time Rubik's Cube scanner and solver using computer vision.
 - **On-the-fly calibration** — press `C`, hold a face, press `1`–`6` to sample reference colors for your specific cube and lighting
 - **Kociemba optimal solver** — computes a solution (≤20 moves) from the scanned state
 - **Real-time preview** — detected colors fill the grid/contours live on camera feed
-- **iPhone / wireless camera** — use `--source` with an IP camera URL instead of the built-in webcam
+- **phone / wireless camera** — use `--source` with an IP camera URL instead of the built-in webcam
 - **Auto-scale** — high-resolution streams are automatically scaled to fit your screen
 
 ## Tech Stack
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 python3 main.py
 ```
 
-With an iPhone / IP camera:
+With an phone / IP camera:
 ```bash
 python3 main.py --source "http://admin:pass@192.168.1.X:8081/video"
 ```
@@ -81,7 +81,7 @@ Cube-Vision-Solver/
 │   ├── contour_detector.py     # Contour finding, K-means color extraction
 │   ├── state_extractor.py      # 6 faces → 54-char Kociemba string
 │   ├── motion_detector.py      # Frame-differencing (infrastructure)
-│   └── stream.py               # MJPEG stream reader (iPhone cameras)
+│   └── stream.py               # MJPEG stream reader (phone cameras)
 ├── ui/
 │   └── overlay.py              # Grid, contours, cube net, calibration legend
 ├── solver/
@@ -93,5 +93,5 @@ Cube-Vision-Solver/
 ## Requirements
 
 - Python 3.8+
-- Webcam or IP camera (iPhone with an IP camera app)
+- Webcam or IP camera (phone with an IP camera app)
 - `opencv-python`, `numpy`, `kociemba`, `colormath`
