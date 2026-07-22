@@ -223,7 +223,10 @@ def main():
                     current_colors = map_display_to_physical_order(current_colors)
 
                     center_color = current_colors[4]
-                    if center_color != 'unknown' and center_color in CENTER_TO_FACE:
+                    if center_color == 'unknown':
+                        center_color = 'white'
+                        current_colors[4] = 'white'
+                    if center_color in CENTER_TO_FACE:
                         face_idx = CENTER_TO_FACE[center_color]
                         face_name = FACE_NAMES[face_idx]
                         hint = FACE_HINTS[face_idx]
