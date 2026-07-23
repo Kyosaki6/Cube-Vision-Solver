@@ -55,7 +55,6 @@ def is_solved_state(state_str):
     return True
 
 def map_display_to_physical_order(display_colors):
-    """Map display-order colors (mirrored screen left-to-right) to physical left-to-right order."""
     return [
         display_colors[2], display_colors[1], display_colors[0],
         display_colors[5], display_colors[4], display_colors[3],
@@ -203,7 +202,6 @@ def main():
 
                 stable_bgrs = [c for c in contour_preview_state if c is not None]
                 if len(stable_bgrs) == 9:
-                    disp_bgrs_original = list(contour_preview_state)
                     disp_bgrs_display = []
                     current_colors = []
                     for bgr_tuple in contour_preview_state:
@@ -233,7 +231,6 @@ def main():
                         display_frame = draw_text_overlay(display_frame, hint,
                                                           position=(30, 60), font_scale=0.5, color=(200, 200, 200))
 
-                        # Auto-capture if all colors known, face not already captured, and different from last auto-capture
                         if (contour_auto_cooldown <= 0
                                 and scanned_faces[face_idx] is None
                                 and all(c != 'unknown' for c in current_colors)
