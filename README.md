@@ -84,8 +84,7 @@ Cube-Vision-Solver/
 ├── ui/
 │   └── overlay.py              # Grid, contours, cube net, calibration legend
 ├── solver/
-│   ├── cube_solver.py          # Kociemba wrapper
-│   └── simulator.py           # Move permutation tables
+│   └── cube_solver.py          # Kociemba algorithm wrapper
 └── requirements.txt
 ```
 

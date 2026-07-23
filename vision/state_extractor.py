@@ -1,5 +1,3 @@
-SCAN_ORDER = ['F (Front)', 'L (Left)', 'B (Back)', 'R (Right)', 'U (Up)', 'D (Down)']
-
 def extract_state_string(scanned_faces):
     if any(f is None for f in scanned_faces):
         raise ValueError("Not all 6 faces have been scanned yet")

@@ -1,5 +1,4 @@
 import cv2
-import numpy as np
 
 def get_grid_regions(frame_width, frame_height, rect_size=40, spacing=60):
     cx, cy = frame_width // 2, frame_height // 2

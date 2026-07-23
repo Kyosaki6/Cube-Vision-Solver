@@ -8,7 +8,7 @@ from ui.overlay import (
     draw_cube_net, draw_calibration_legend, draw_detected_contours, draw_contour_colors
 )
 from vision.color_detector import (
-    extract_colors, get_dominant_color, COLOR_BGR, REFERENCE_BGR, REFERENCE_LAB,
+    extract_colors, COLOR_BGR, REFERENCE_BGR, REFERENCE_LAB,
     CALIBRATION_COLORS, DEFAULT_REFERENCE_BGR, update_reference_color,
     save_calibration, load_calibration, sample_calibration_color, ciede2000_distance
 )
@@ -120,7 +120,6 @@ def main():
 
     contour_average_colors = {}
     contour_preview_state = [None] * 9
-    contour_rects = []
     contour_last_auto_face = -1
     contour_auto_cooldown = 0
 
@@ -181,7 +180,6 @@ def main():
             rects = find_sticker_contours(dilated)
 
             if rects:
-                contour_rects = rects
                 display_frame = draw_detected_contours(display_frame, rects, color=(0, 255, 0), thickness=2)
 
                 kmeans_bgrs = extract_contour_colors_kmeans(display_frame, rects)
@@ -254,7 +252,6 @@ def main():
                     display_frame = draw_text_overlay(display_frame, "Hold the cube steady...",
                                                       position=(30, 60), font_scale=0.5, color=(200, 200, 200))
             else:
-                contour_rects = []
                 current_colors = None
                 display_frame = draw_text_overlay(display_frame, "Detecting stickers: 0/9 found",
                                                   position=(30, 30), color=(0, 0, 255), font_scale=0.7)
@@ -351,7 +348,6 @@ def main():
                 state = "CONTOUR_SCANNING"
                 contour_average_colors = {}
                 contour_preview_state = [None] * 9
-                contour_rects = []
                 scanning_feedback = "Switched to Contour Scan mode"
                 print(scanning_feedback)
             elif state == "CONTOUR_SCANNING":
