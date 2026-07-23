@@ -25,7 +25,7 @@ Real-time Rubik's Cube scanner and solver using computer vision.
 ## Installation
 
 ```bash
-python3 -m venv venv
+python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -33,12 +33,12 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python3 main.py
+python main.py
 ```
 
 With an phone / IP camera:
 ```bash
-python3 main.py --source "http://admin:pass@192.168.1.X:8081/video"
+python main.py --source "http://admin:pass@192.168.1.X:8081/video"
 ```
 
 ### Controls
