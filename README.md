@@ -80,7 +80,6 @@ Cube-Vision-Solver/
 │   ├── color_detector.py       # CIEDE2000 matching, calibration save/load
 │   ├── contour_detector.py     # Contour finding, K-means color extraction
 │   ├── state_extractor.py      # 6 faces → 54-char Kociemba string
-│   ├── motion_detector.py      # Frame-differencing (infrastructure)
 │   └── stream.py               # MJPEG stream reader (phone cameras)
 ├── ui/
 │   └── overlay.py              # Grid, contours, cube net, calibration legend
