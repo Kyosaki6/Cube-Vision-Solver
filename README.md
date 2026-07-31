@@ -141,9 +141,9 @@ Cube-Vision-Solver/
 
 ## Authors & Affiliation
 
-- Nguyễn Trường Phước — Student ID: 24100153
-- Huỳnh Quang Thịnh — Student ID: 24100847
-- Nguyễn Đức Hoàng Nam — Student ID: 24105787
+- Nguyễn Trường Phước
+- Huỳnh Quang Thịnh
+- Nguyễn Đức Hoàng Nam
 
 Supervisor: Dr. Nguyễn Văn Tới
 
